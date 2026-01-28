@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { mainButton } from '@telegram-apps/sdk-react'
 import { api } from '../api'
 
 interface Exhibition {
@@ -24,19 +23,29 @@ export default function ExhibitionList() {
   useEffect(() => {
     loadExhibitions()
     
-    mainButton.setParams({
-      text: 'Мои записи',
-      isVisible: true,
-    })
+    let cleanup: (() => void) | undefined
     
-    const handleClick = () => navigate('/my-bookings')
-    mainButton.onClick(handleClick)
+    import('@telegram-apps/sdk-react').then(({ mainButton }) => {
+      try {
+        mainButton.setParams({
+          text: 'Мои записи',
+          isVisible: true,
+        })
+        
+        const handleClick = () => navigate('/my-bookings')
+        mainButton.onClick(handleClick)
+        
+        cleanup = () => {
+          mainButton.offClick(handleClick)
+          mainButton.setParams({ isVisible: false })
+        }
+      } catch (e) {
+        console.log('MainButton not available')
+      }
+    }).catch(() => {})
     
     return () => {
-      mainButton.offClick(handleClick)
-      if (mainButton.setParams) {
-        mainButton.setParams({ isVisible: false })
-      }
+      if (cleanup) cleanup()
     }
   }, [navigate])
 
@@ -45,7 +54,7 @@ export default function ExhibitionList() {
       setLoading(true)
       setError(null)
       const data = await api.getExhibitions()
-      setExhibitions(data.filter(e => e.active))
+      setExhibitions(data.filter(e => e.active !== false))
     } catch (err) {
       setError('Не удалось загрузить выставки')
       console.error(err)
@@ -94,14 +103,14 @@ export default function ExhibitionList() {
         marginBottom: '8px',
         color: 'var(--tg-theme-text-color)'
       }}>
-        Gallery Way
+        Галерея Путь
       </h1>
       <p style={{ 
         fontSize: '14px', 
         color: 'var(--tg-theme-hint-color)',
         marginBottom: '24px'
       }}>
-        Гороховая 49Б, SЕНО, 2 этаж
+        Гороховая 49Б, СЕНО, 2 этаж
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -114,16 +123,6 @@ export default function ExhibitionList() {
               backgroundColor: 'var(--tg-theme-secondary-bg-color)',
               borderRadius: '12px',
               cursor: 'pointer',
-              transition: 'opacity 0.2s',
-            }}
-            onMouseDown={(e) => {
-              e.currentTarget.style.opacity = '0.7'
-            }}
-            onMouseUp={(e) => {
-              e.currentTarget.style.opacity = '1'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.opacity = '1'
             }}
           >
             <h2 style={{ 
@@ -164,11 +163,29 @@ export default function ExhibitionList() {
               fontSize: '13px',
               color: 'var(--tg-theme-hint-color)'
             }}>
-              Продолжительность: {exhibition.duration_minutes} минут
+              ~{exhibition.duration_minutes} минут
             </div>
           </div>
         ))}
       </div>
+      
+      <button
+        onClick={() => navigate('/my-bookings')}
+        style={{
+          marginTop: '24px',
+          width: '100%',
+          padding: '14px',
+          backgroundColor: 'var(--tg-theme-button-color)',
+          color: 'var(--tg-theme-button-text-color)',
+          border: 'none',
+          borderRadius: '10px',
+          fontSize: '16px',
+          fontWeight: '500',
+          cursor: 'pointer',
+        }}
+      >
+        Мои записи
+      </button>
     </div>
   )
 }

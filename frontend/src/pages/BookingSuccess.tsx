@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { mainButton } from '@telegram-apps/sdk-react'
 import { api } from '../api'
 
 interface Booking {
@@ -24,19 +23,30 @@ export default function BookingSuccess() {
   useEffect(() => {
     loadBooking()
     
-    mainButton.setParams({
-      text: 'На главную',
-      isVisible: true,
-    })
-    
-    const handleClick = () => navigate('/')
-    mainButton.onClick(handleClick)
+    let cleanup: (() => void) | undefined
+    const setupMainButton = async () => {
+      try {
+        const sdk = await import('@telegram-apps/sdk-react')
+        const mainButton = sdk.mainButton
+        if (mainButton && mainButton.setParams) {
+          mainButton.setParams({
+            text: 'На главную',
+            isVisible: true,
+          })
+          const handleClick = () => navigate('/')
+          mainButton.onClick(handleClick)
+          cleanup = () => {
+            mainButton.offClick(handleClick)
+            mainButton.setParams({ isVisible: false })
+          }
+        }
+      } catch {
+      }
+    }
+    setupMainButton()
     
     return () => {
-      mainButton.offClick(handleClick)
-      if (mainButton.setParams) {
-        mainButton.setParams({ isVisible: false })
-      }
+      if (cleanup) cleanup()
     }
   }, [navigate, bookingId])
 
@@ -70,7 +80,7 @@ export default function BookingSuccess() {
   if (error || !booking) {
     return (
       <div style={{ padding: '20px', textAlign: 'center' }}>
-        <div style={{ color: 'var(--tg-theme-destructive-text-color)', fontSize: '16px' }}>
+        <div style={{ color: 'var(--tg-theme-destructive-text-color, #e53935)', fontSize: '16px' }}>
           {error || 'Бронирование не найдено'}
         </div>
       </div>
@@ -98,14 +108,14 @@ export default function BookingSuccess() {
         fontSize: '24px', 
         fontWeight: '600',
         marginBottom: '12px',
-        color: 'var(--tg-theme-text-color)'
+        color: 'var(--tg-theme-text-color, #000000)'
       }}>
         Бронирование подтверждено!
       </h1>
 
       <p style={{
         fontSize: '15px',
-        color: 'var(--tg-theme-hint-color)',
+        color: 'var(--tg-theme-hint-color, #999999)',
         marginBottom: '32px',
         lineHeight: '1.5'
       }}>
@@ -114,7 +124,7 @@ export default function BookingSuccess() {
 
       <div style={{ 
         width: '100%',
-        backgroundColor: 'var(--tg-theme-secondary-bg-color)',
+        backgroundColor: 'var(--tg-theme-secondary-bg-color, #f5f5f5)',
         borderRadius: '12px',
         padding: '20px',
         textAlign: 'left'
@@ -122,7 +132,7 @@ export default function BookingSuccess() {
         <div style={{ marginBottom: '16px' }}>
           <div style={{ 
             fontSize: '13px', 
-            color: 'var(--tg-theme-hint-color)',
+            color: 'var(--tg-theme-hint-color, #999999)',
             marginBottom: '6px'
           }}>
             Выставка
@@ -135,7 +145,7 @@ export default function BookingSuccess() {
         <div style={{ marginBottom: '16px' }}>
           <div style={{ 
             fontSize: '13px', 
-            color: 'var(--tg-theme-hint-color)',
+            color: 'var(--tg-theme-hint-color, #999999)',
             marginBottom: '6px'
           }}>
             Дата и время
@@ -156,7 +166,7 @@ export default function BookingSuccess() {
         <div style={{ marginBottom: '16px' }}>
           <div style={{ 
             fontSize: '13px', 
-            color: 'var(--tg-theme-hint-color)',
+            color: 'var(--tg-theme-hint-color, #999999)',
             marginBottom: '6px'
           }}>
             Адрес
@@ -169,7 +179,7 @@ export default function BookingSuccess() {
         <div>
           <div style={{ 
             fontSize: '13px', 
-            color: 'var(--tg-theme-hint-color)',
+            color: 'var(--tg-theme-hint-color, #999999)',
             marginBottom: '6px'
           }}>
             Номер бронирования
@@ -183,7 +193,7 @@ export default function BookingSuccess() {
       <div style={{
         marginTop: '24px',
         fontSize: '14px',
-        color: 'var(--tg-theme-hint-color)',
+        color: 'var(--tg-theme-hint-color, #999999)',
         lineHeight: '1.6'
       }}>
         <div style={{ marginBottom: '8px' }}>
@@ -193,6 +203,24 @@ export default function BookingSuccess() {
           💳 Оплата производится на месте
         </div>
       </div>
+
+      <button
+        onClick={() => navigate('/')}
+        style={{
+          marginTop: '32px',
+          width: '100%',
+          padding: '16px',
+          backgroundColor: 'var(--tg-theme-button-color, #3390ec)',
+          color: 'var(--tg-theme-button-text-color, #ffffff)',
+          border: 'none',
+          borderRadius: '12px',
+          fontSize: '17px',
+          fontWeight: '600',
+          cursor: 'pointer',
+        }}
+      >
+        На главную
+      </button>
     </div>
   )
 }

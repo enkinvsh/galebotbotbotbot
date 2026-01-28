@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { backButton, mainButton } from '@telegram-apps/sdk-react'
 import { api } from '../api'
 
 interface Exhibition {
@@ -34,68 +33,12 @@ export default function BookingFlow() {
   const [phone, setPhone] = useState('')
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
   const [loading, setLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadExhibition()
-    
-    backButton.show()
-    const handleBack = () => {
-      if (step === 'date') {
-        navigate('/')
-      } else if (step === 'time') {
-        setStep('date')
-        setSelectedTime('')
-        setTimeSlots([])
-      } else if (step === 'phone') {
-        setStep('time')
-        setPhone('')
-      } else if (step === 'confirm') {
-        setStep('phone')
-      }
-    }
-    backButton.onClick(handleBack)
-    
-    return () => {
-      backButton.offClick(handleBack)
-      if (mainButton.setParams) {
-        mainButton.setParams({ isVisible: false })
-      }
-    }
-  }, [step, navigate])
-
-  useEffect(() => {
-    if (step === 'date') {
-      if (mainButton.setParams) {
-        mainButton.setParams({ isVisible: false })
-      }
-    } else if (step === 'time' && selectedTime) {
-      mainButton.setParams({
-        text: 'Далее',
-        isVisible: true,
-      })
-      const handleClick = () => setStep('phone')
-      mainButton.onClick(handleClick)
-      return () => mainButton.offClick(handleClick)
-    } else if (step === 'phone' && isPhoneValid(phone)) {
-      mainButton.setParams({
-        text: 'Подтвердить',
-        isVisible: true,
-      })
-      const handleClick = () => setStep('confirm')
-      mainButton.onClick(handleClick)
-      return () => mainButton.offClick(handleClick)
-    } else if (step === 'confirm') {
-      mainButton.setParams({
-        text: loading ? 'Бронируем...' : 'Забронировать',
-        isVisible: true,
-        isEnabled: !loading,
-      })
-      const handleClick = () => submitBooking()
-      mainButton.onClick(handleClick)
-      return () => mainButton.offClick(handleClick)
-    }
-  }, [step, selectedTime, phone, loading])
+  }, [exhibitionId])
 
   async function loadExhibition() {
     try {
@@ -132,7 +75,7 @@ export default function BookingFlow() {
     if (!exhibitionId) return
     
     try {
-      setLoading(true)
+      setSubmitting(true)
       setError(null)
       const booking = await api.createBooking({
         exhibition_id: Number(exhibitionId),
@@ -143,7 +86,7 @@ export default function BookingFlow() {
       navigate(`/success/${booking.id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка бронирования')
-      setLoading(false)
+      setSubmitting(false)
     }
   }
 
@@ -169,6 +112,21 @@ export default function BookingFlow() {
     return '+7' + digits.slice(0, 10)
   }
 
+  function goBack() {
+    if (step === 'date') {
+      navigate('/')
+    } else if (step === 'time') {
+      setStep('date')
+      setSelectedTime('')
+      setTimeSlots([])
+    } else if (step === 'phone') {
+      setStep('time')
+      setPhone('')
+    } else if (step === 'confirm') {
+      setStep('phone')
+    }
+  }
+
   const today = new Date().toISOString().split('T')[0]
 
   if (!exhibition) {
@@ -186,7 +144,24 @@ export default function BookingFlow() {
   }
 
   return (
-    <div style={{ padding: '16px', paddingBottom: '80px' }}>
+    <div style={{ padding: '16px', paddingBottom: '100px' }}>
+      <button
+        onClick={goBack}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          background: 'none',
+          border: 'none',
+          color: 'var(--tg-theme-link-color)',
+          fontSize: '16px',
+          marginBottom: '16px',
+          padding: 0,
+        }}
+      >
+        ← Назад
+      </button>
+
       <div style={{ marginBottom: '24px' }}>
         <h1 style={{ 
           fontSize: '20px', 
@@ -235,6 +210,7 @@ export default function BookingFlow() {
             onChange={(e) => {
               const newDate = e.target.value
               setSelectedDate(newDate)
+              setError(null)
               if (isDateValid(newDate)) {
                 loadTimeSlots(newDate)
                 setStep('time')
@@ -258,7 +234,7 @@ export default function BookingFlow() {
             color: 'var(--tg-theme-hint-color)',
             lineHeight: '1.5'
           }}>
-            {exhibition.schedule_text}
+            Расписание: {exhibition.schedule_text}
           </div>
         </div>
       )}
@@ -292,49 +268,68 @@ export default function BookingFlow() {
               Загрузка расписания...
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-              {timeSlots.map(slot => {
-                const isAvailable = slot.available > 0
-                const isSelected = selectedTime === slot.time
-                
-                return (
-                  <button
-                    key={slot.time}
-                    disabled={!isAvailable}
-                    onClick={() => setSelectedTime(slot.time)}
-                    style={{
-                      padding: '16px 8px',
-                      fontSize: '15px',
-                      fontWeight: isSelected ? '600' : '500',
-                      border: isSelected 
-                        ? '2px solid var(--tg-theme-button-color)' 
-                        : '1px solid var(--tg-theme-hint-color)',
-                      borderRadius: '8px',
-                      backgroundColor: isSelected 
-                        ? 'var(--tg-theme-button-color)' 
-                        : 'var(--tg-theme-secondary-bg-color)',
-                      color: isSelected 
-                        ? 'var(--tg-theme-button-text-color)' 
-                        : isAvailable 
-                          ? 'var(--tg-theme-text-color)' 
-                          : 'var(--tg-theme-hint-color)',
-                      cursor: isAvailable ? 'pointer' : 'not-allowed',
-                      opacity: isAvailable ? 1 : 0.5,
-                      transition: 'all 0.2s',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    <div>{slot.time}</div>
-                    <div style={{ fontSize: '11px', opacity: 0.7 }}>
-                      {slot.available}/{slot.capacity}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                {timeSlots.map(slot => {
+                  const isAvailable = slot.available > 0
+                  const isSelected = selectedTime === slot.time
+                  
+                  return (
+                    <button
+                      key={slot.time}
+                      disabled={!isAvailable}
+                      onClick={() => setSelectedTime(slot.time)}
+                      style={{
+                        padding: '16px 8px',
+                        fontSize: '15px',
+                        fontWeight: isSelected ? '600' : '500',
+                        border: isSelected 
+                          ? '2px solid var(--tg-theme-button-color)' 
+                          : '1px solid var(--tg-theme-hint-color)',
+                        borderRadius: '8px',
+                        backgroundColor: isSelected 
+                          ? 'var(--tg-theme-button-color)' 
+                          : 'var(--tg-theme-secondary-bg-color)',
+                        color: isSelected 
+                          ? 'var(--tg-theme-button-text-color)' 
+                          : isAvailable 
+                            ? 'var(--tg-theme-text-color)' 
+                            : 'var(--tg-theme-hint-color)',
+                        cursor: isAvailable ? 'pointer' : 'not-allowed',
+                        opacity: isAvailable ? 1 : 0.5,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <div>{slot.time}</div>
+                      <div style={{ fontSize: '11px', opacity: 0.7 }}>
+                        {slot.available}/{slot.capacity}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+              {selectedTime && (
+                <button
+                  onClick={() => setStep('phone')}
+                  style={{
+                    marginTop: '24px',
+                    width: '100%',
+                    padding: '14px',
+                    backgroundColor: 'var(--tg-theme-button-color)',
+                    color: 'var(--tg-theme-button-text-color)',
+                    border: 'none',
+                    borderRadius: '10px',
+                    fontSize: '16px',
+                    fontWeight: '500',
+                  }}
+                >
+                  Далее
+                </button>
+              )}
+            </>
           )}
         </div>
       )}
@@ -372,6 +367,24 @@ export default function BookingFlow() {
           }}>
             Мы отправим вам подтверждение и напоминание
           </div>
+          {isPhoneValid(phone) && (
+            <button
+              onClick={() => setStep('confirm')}
+              style={{
+                marginTop: '24px',
+                width: '100%',
+                padding: '14px',
+                backgroundColor: 'var(--tg-theme-button-color)',
+                color: 'var(--tg-theme-button-text-color)',
+                border: 'none',
+                borderRadius: '10px',
+                fontSize: '16px',
+                fontWeight: '500',
+              }}
+            >
+              Подтвердить
+            </button>
+          )}
         </div>
       )}
 
@@ -457,10 +470,29 @@ export default function BookingFlow() {
           <div style={{
             fontSize: '13px',
             color: 'var(--tg-theme-hint-color)',
-            lineHeight: '1.5'
+            lineHeight: '1.5',
+            marginBottom: '24px'
           }}>
             Оплата производится на месте. Мы отправим вам подтверждение и напомним о визите за 24 часа.
           </div>
+
+          <button
+            onClick={submitBooking}
+            disabled={submitting}
+            style={{
+              width: '100%',
+              padding: '14px',
+              backgroundColor: 'var(--tg-theme-button-color)',
+              color: 'var(--tg-theme-button-text-color)',
+              border: 'none',
+              borderRadius: '10px',
+              fontSize: '16px',
+              fontWeight: '500',
+              opacity: submitting ? 0.7 : 1,
+            }}
+          >
+            {submitting ? 'Бронируем...' : 'Забронировать'}
+          </button>
         </div>
       )}
     </div>
