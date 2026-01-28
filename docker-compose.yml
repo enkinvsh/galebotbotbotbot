@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gallery_db
+    environment:
+      POSTGRES_USER: gallery_user
+      POSTGRES_PASSWORD: gallery_password
+      POSTGRES_DB: gallery_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - gallery_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gallery_user -d gallery_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  gallery_data:
